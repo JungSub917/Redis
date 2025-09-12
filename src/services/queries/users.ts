@@ -1,7 +1,7 @@
 import type { CreateUserAttrs } from '$services/types';
 import { genId } from '$services/utils';
 import { client } from '$services/redis';
-import { usersKey } from '$services/keys';
+import { usersKey, usernamesUniqueKey } from '$services/keys';
 
 
 export const getUserByUsername = async (username: string) => {};
@@ -16,7 +16,16 @@ export const createUser = async (attrs: CreateUserAttrs) => {
 
   const id = genId();
 
+  // 기존에 usernames가 있으면 확인.
+  const exists = await client.sIsMember(usernamesUniqueKey(), attrs.username);
+  // 그렇다면 오류 발생
+  if (exists) {
+    throw new Error('Username is taken');
+  }
+  // 그렇지 않으면 계속 진항한다.
+
   await client.hSet(usersKey(id), serialize(attrs));
+  await client.sAdd(usernamesUniqueKey(), attrs.username); 
 
   return id;
 };
